@@ -2,6 +2,7 @@
 Plugins/
 
 # don't check-in generated files
+*.code-workspace
 *.sln
 *_BuiltData.uasset
 /.kdev/
