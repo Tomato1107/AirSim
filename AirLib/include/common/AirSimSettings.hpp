@@ -24,6 +24,7 @@ private:
 
 public: //types
     static constexpr int kSubwindowCount = 3; //must be >= 3 for now
+    static constexpr char const * kVehicleTypeSnapStack = "snapstack";
     static constexpr char const * kVehicleTypePX4 = "px4multirotor";
 	static constexpr char const * kVehicleTypeArduCopterSolo = "arducoptersolo";
 	static constexpr char const * kVehicleTypeSimpleFlight = "simpleflight";
@@ -717,6 +718,9 @@ private:
                 //TODO: we should be selecting remote if available else keyboard
                 //currently keyboard is not supported so use rc as default
                 vehicle_setting->rc.remote_control_id = 0;
+            } else if (vehicle_type == kVehicleTypeSnapStack) {
+                vehicle_setting->rc.remote_control_id = 0;
+                vehicle_setting->rc.allow_api_when_disconnected = true;
             }
         }
         vehicle_setting->vehicle_name = vehicle_name;
