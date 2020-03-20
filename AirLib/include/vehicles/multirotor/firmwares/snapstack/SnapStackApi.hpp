@@ -22,6 +22,7 @@
 #include "physics/Kinematics.hpp"
 #include "vehicles/multirotor/MultiRotorParams.hpp"
 #include "common/Common.hpp"
+#include "common/EarthUtils.hpp"
 #include "physics/PhysicsBody.hpp"
 #include "common/AirSimSettings.hpp"
 
@@ -45,7 +46,7 @@ class SnapStackApi : public MultirotorApiBase {
 
 public:
     SnapStackApi(const MultiRotorParams* vehicle_params, const AirSimSettings::VehicleSetting* vehicle_setting)
-        : vehicle_params_(vehicle_params), escthread_stop_(false)
+        : vehicle_params_(vehicle_params), first_imu_time_(0), escthread_stop_(false)
     {
         readSettings(*vehicle_setting);
 
@@ -108,7 +109,8 @@ public: //VehicleApiBase implementation
 public: //MultirotorApiBase implementation
     virtual real_T getActuation(unsigned int rotor_index) const override
     {
-        return motorcmds_[rotor_index];
+        return 0.0;
+        // return motorcmds_[rotor_index];
     }
     virtual size_t getActuatorCount() const override
     {
@@ -320,21 +322,23 @@ private:
 
     void sendSensors()
     {
-        // if (getSensors() == nullptr) return;
-
         const auto& imu_output = getImu()->getOutput();
-
-        constexpr double GRAVITY = 9.80665;
 
         imu_.timestamp_in_us = static_cast<uint64_t>(ClockFactory::get()->nowNanos()*1.0e-3);
         imu_.sequence_number++;
-        // the orientation of the IMU corresponds to the sf board (eagle8074)
-        imu_.linear_acceleration[0] = imu_output.linear_acceleration[0] / GRAVITY;
-        imu_.linear_acceleration[1] = imu_output.linear_acceleration[1] / GRAVITY;
-        imu_.linear_acceleration[2] = imu_output.linear_acceleration[2] / GRAVITY;
-        imu_.angular_velocity[0] = imu_output.linear_acceleration[0];
-        imu_.angular_velocity[1] = imu_output.linear_acceleration[1];
-        imu_.angular_velocity[2] = imu_output.linear_acceleration[2];
+        // the orientation of the IMU corresponds to the sf board (eagle8074). AirSim is NED.
+        imu_.linear_acceleration[0] = imu_output.linear_acceleration[0] / EarthUtils::Gravity;
+        imu_.linear_acceleration[1] = imu_output.linear_acceleration[1] / EarthUtils::Gravity;
+        imu_.linear_acceleration[2] = imu_output.linear_acceleration[2] / EarthUtils::Gravity;
+        imu_.angular_velocity[0] = imu_output.angular_velocity[0];
+        imu_.angular_velocity[1] = imu_output.angular_velocity[1];
+        imu_.angular_velocity[2] = imu_output.angular_velocity[2];
+
+        // Wait for imu to settle before sending
+        constexpr uint64_t IMU_SETTLE = 500e3;
+        if (first_imu_time_ == 0) first_imu_time_ = imu_.timestamp_in_us;
+        if (imu_.timestamp_in_us - first_imu_time_ < IMU_SETTLE) return;
+
         imuserver_->send(imu_);
     }
 
@@ -362,6 +366,7 @@ private:
 
     /// |brief IMU sensor data server
     std::unique_ptr<acl::ipc::Server<sensor_imu>> imuserver_;
+    uint64_t first_imu_time_;
     sensor_imu imu_;
 
     /// \brief Thread for reading motor commands
