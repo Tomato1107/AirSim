@@ -10,6 +10,12 @@
 #ifndef msr_airlib_SnapStackDroneController_hpp
 #define msr_airlib_SnapStackDroneController_hpp
 
+#include <atomic>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <thread>
+
 #include "vehicles/multirotor/api/MultirotorApiBase.hpp"
 #include "sensors/SensorCollection.hpp"
 #include "physics/Environment.hpp"
@@ -19,8 +25,16 @@
 #include "physics/PhysicsBody.hpp"
 #include "common/AirSimSettings.hpp"
 
+// Sensors
+#include "sensors/imu/ImuBase.hpp"
+#include "sensors/gps/GpsBase.hpp"
+#include "sensors/magnetometer/MagnetometerBase.hpp"
+#include "sensors/barometer/BarometerBase.hpp"
+#include "sensors/lidar/LidarBase.hpp"
+
 #include "client.h"
 #include "server.h"
+#include "ipc_common.h"
 #include "sensor-imu/sensor_datatypes.h"
 #include "esc_interface/esc_datatypes.h"
 #include "esc_interface/esc_interface.h"
@@ -31,12 +45,20 @@ class SnapStackApi : public MultirotorApiBase {
 
 public:
     SnapStackApi(const MultiRotorParams* vehicle_params, const AirSimSettings::VehicleSetting* vehicle_setting)
-        : vehicle_params_(vehicle_params)
+        : vehicle_params_(vehicle_params), escthread_stop_(false)
     {
         readSettings(*vehicle_setting);
 
+        connect();
+
         //TODO: set below properly for better high speed safety
         safety_params_.vel_to_breaking_dist = safety_params_.min_breaking_dist = 0;
+    }
+
+    ~SnapStackApi()
+    {
+        escthread_stop_ = true;
+        if (escthread_.joinable()) escthread_.join();
     }
 
 
@@ -51,31 +73,31 @@ public: //VehicleApiBase implementation
     {
         MultirotorApiBase::update();
 
-        // send sensor data
-        // receive actuator commands
+        sendSensors();
+        // receive actuator commands (done asynchronously)
     }
     virtual bool isApiControlEnabled() const override
     {
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("isApiControlEnabled Not Implemented", Utils::kLogLevelInfo);
         return false;
     }
     virtual void enableApiControl(bool) override
     {
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("enableApiControl Not Implemented", Utils::kLogLevelInfo);
     }
     virtual bool armDisarm(bool) override
     {
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("armDisarm Not Implemented", Utils::kLogLevelInfo);
         return false;
     }
     virtual GeoPoint getHomeGeoPoint() const override
     {
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("getHomeGeoPoint Not Implemented", Utils::kLogLevelInfo);
         return GeoPoint(Utils::nan<double>(), Utils::nan<double>(), Utils::nan<float>());
     }
     virtual void getStatusMessages(std::vector<std::string>&) override
     {
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("getStatusMessages Not Implemented", Utils::kLogLevelInfo);
     }
 
     virtual const SensorCollection& getSensors() const override
@@ -86,8 +108,7 @@ public: //VehicleApiBase implementation
 public: //MultirotorApiBase implementation
     virtual real_T getActuation(unsigned int rotor_index) const override
     {
-        // TODO: index array of motor commands
-        return 0.0;
+        return motorcmds_[rotor_index];
     }
     virtual size_t getActuatorCount() const override
     {
@@ -95,7 +116,7 @@ public: //MultirotorApiBase implementation
     }
     virtual void moveByRC(const RCData& rc_data) override
     {
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("moveByRC Not Implemented", Utils::kLogLevelInfo);
     }
     virtual void setSimulatedGroundTruth(const Kinematics::State* kinematics, const Environment* environment) override
     {
@@ -105,7 +126,7 @@ public: //MultirotorApiBase implementation
     }
     virtual bool setRCData(const RCData& rc_data) override
     {
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("setRCData Not Implemented", Utils::kLogLevelInfo);
         return false;
     }
 
@@ -152,7 +173,7 @@ protected:
     virtual RCData getRCData() const override
     {
         // TODO: is this important?
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("getRCData Not Implemented", Utils::kLogLevelInfo);
         return {};
         //return what we received last time through setRCData
         // return last_rcData_;
@@ -161,7 +182,7 @@ protected:
     virtual GeoPoint getGpsLocation() const override
     {
         // TODO: is this important?
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("getGpsLocation Not Implemented", Utils::kLogLevelInfo);
         return GeoPoint(Utils::nan<double>(), Utils::nan<double>(), Utils::nan<float>());
         // return AirSimSimpleFlightCommon::toGeoPoint(firmware_->offboardApi().getGeoPoint());
     }
@@ -174,9 +195,8 @@ protected:
 
     virtual float getTakeoffZ() const override
     {
-        // pick a number, 3 meters is probably safe
-        // enough to get out of the backwash turbulence.  Negative due to NED coordinate system.
-        return params_.takeoff.takeoff_z;
+        Utils::log("getTakeoffZ Not Implemented", Utils::kLogLevelInfo);
+        return 0.0;
     }
 
     virtual float getDistanceAccuracy() const override
@@ -190,7 +210,7 @@ protected:
         unused(roll);
         unused(throttle);
         unused(yaw_rate);
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("commandRollPitchThrottle Not Implemented", Utils::kLogLevelInfo);
     }
 
     virtual void commandRollPitchZ(float pitch, float roll, float z, float yaw) override
@@ -199,7 +219,7 @@ protected:
         unused(roll);
         unused(z);
         unused(yaw);
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("commandRollPitchZ Not Implemented", Utils::kLogLevelInfo);
     }
 
     virtual void commandVelocity(float vx, float vy, float vz, const YawMode& yaw_mode) override
@@ -208,7 +228,7 @@ protected:
         unused(vy);
         unused(vz);
         unused(yaw_mode);
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("commandVelocity Not Implemented", Utils::kLogLevelInfo);
     }
 
     virtual void commandVelocityZ(float vx, float vy, float z, const YawMode& yaw_mode) override
@@ -217,7 +237,7 @@ protected:
         unused(vy);
         unused(z);
         unused(yaw_mode);
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("commandVelocityZ Not Implemented", Utils::kLogLevelInfo);
     }
 
     virtual void commandPosition(float x, float y, float z, const YawMode& yaw_mode) override
@@ -226,7 +246,7 @@ protected:
         unused(y);
         unused(z);
         unused(yaw_mode);
-        Utils::log("Not Implemented", Utils::kLogLevelInfo);
+        Utils::log("commandPosition Not Implemented", Utils::kLogLevelInfo);
     }
 
     virtual const MultirotorApiParams& getMultirotorApiParams() const override
@@ -235,6 +255,48 @@ protected:
     }
 
     //*** End: MultirotorApiBase implementation ***//
+
+protected:
+    void connect()
+    {
+        //
+        // SIL Communications
+        //
+
+        const size_t imukey = acl::ipc::createKeyFromStr(vehicle_name_, "imu");
+        const size_t esckey = acl::ipc::createKeyFromStr(vehicle_name_, "esc");
+
+        // unique key is used to access the same shmem location
+        imuserver_.reset(new acl::ipc::Server<sensor_imu>(imukey));
+        escclient_.reset(new acl::ipc::Client<esc_commands>(esckey));
+
+        //
+        // ESC Commands thread
+        //
+
+        escthread_ = std::thread(&SnapStackApi::escReadThread, this);
+    }
+
+    const GpsBase* getGps() const
+    {
+        return static_cast<const GpsBase*>(getSensors().getByType(SensorBase::SensorType::Gps));
+    }
+    const ImuBase* getImu() const
+    {
+        return static_cast<const ImuBase*>(getSensors().getByType(SensorBase::SensorType::Imu));
+    }
+    const MagnetometerBase* getMagnetometer() const
+    {
+        return static_cast<const MagnetometerBase*>(getSensors().getByType(SensorBase::SensorType::Magnetometer));
+    }
+    const BarometerBase* getBarometer() const
+    {
+        return static_cast<const BarometerBase*>(getSensors().getByType(SensorBase::SensorType::Barometer));
+    }
+    const LidarBase* getLidar() const
+    {
+        return static_cast<const LidarBase*>(getSensors().getByType(SensorBase::SensorType::Lidar));
+    }
 
 private:
     //convert pitch, roll, yaw from -1 to 1 to PWM
@@ -253,19 +315,62 @@ private:
 
     void readSettings(const AirSimSettings::VehicleSetting& vehicle_setting)
     {
-        params_.default_vehicle_state = simple_flight::VehicleState::fromString(
-            vehicle_setting.default_vehicle_state == "" ? "Armed" : vehicle_setting.default_vehicle_state);
+        vehicle_name_ = vehicle_setting.vehicle_name;
+    }
 
-        // remote_control_id_ = vehicle_setting.rc.remote_control_id;
-        // params_.rc.allow_api_when_disconnected = vehicle_setting.rc.allow_api_when_disconnected;
-        // params_.rc.allow_api_always = vehicle_setting.allow_api_always;
+    void sendSensors()
+    {
+        // if (getSensors() == nullptr) return;
+
+        const auto& imu_output = getImu()->getOutput();
+
+        constexpr double GRAVITY = 9.80665;
+
+        imu_.timestamp_in_us = static_cast<uint64_t>(ClockFactory::get()->nowNanos()*1.0e-3);
+        imu_.sequence_number++;
+        // the orientation of the IMU corresponds to the sf board (eagle8074)
+        imu_.linear_acceleration[0] = imu_output.linear_acceleration[0] / GRAVITY;
+        imu_.linear_acceleration[1] = imu_output.linear_acceleration[1] / GRAVITY;
+        imu_.linear_acceleration[2] = imu_output.linear_acceleration[2] / GRAVITY;
+        imu_.angular_velocity[0] = imu_output.linear_acceleration[0];
+        imu_.angular_velocity[1] = imu_output.linear_acceleration[1];
+        imu_.angular_velocity[2] = imu_output.linear_acceleration[2];
+        imuserver_->send(imu_);
+    }
+
+    void escReadThread()
+    {
+        static constexpr uint16_t PWM_MAX = acl::ESCInterface::PWM_MAX_PULSE_WIDTH;
+        static constexpr uint16_t PWM_MIN = acl::ESCInterface::PWM_MIN_PULSE_WIDTH;
+
+        while (!escthread_stop_) {
+            esc_commands esccmds;
+            bool rcvd = escclient_->read(&esccmds);
+
+            std::lock_guard<std::mutex> lck(escmtx_);
+            motorcmds_[0] = (esccmds.pwm[0] - PWM_MIN) / static_cast<double>(PWM_MAX - PWM_MIN);
+            motorcmds_[1] = (esccmds.pwm[1] - PWM_MIN) / static_cast<double>(PWM_MAX - PWM_MIN);
+            motorcmds_[2] = (esccmds.pwm[2] - PWM_MIN) / static_cast<double>(PWM_MAX - PWM_MIN);
+            motorcmds_[3] = (esccmds.pwm[3] - PWM_MIN) / static_cast<double>(PWM_MAX - PWM_MIN);
+        }
     }
 
 private:
     const MultiRotorParams* vehicle_params_;
 
-    // int remote_control_id_ = 0;
-    simple_flight::Params params_;
+    std::string vehicle_name_;
+
+    /// |brief IMU sensor data server
+    std::unique_ptr<acl::ipc::Server<sensor_imu>> imuserver_;
+    sensor_imu imu_;
+
+    /// \brief Thread for reading motor commands
+    std::unique_ptr<acl::ipc::Client<esc_commands>> escclient_;
+    std::atomic<bool> escthread_stop_;
+    static constexpr int MOTORS = 4;
+    float motorcmds_[MOTORS];
+    std::thread escthread_;
+    std::mutex escmtx_;
 
     MultirotorApiParams safety_params_;
 };
