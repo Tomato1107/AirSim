@@ -19,6 +19,12 @@
 #include "physics/PhysicsBody.hpp"
 #include "common/AirSimSettings.hpp"
 
+#include "client.h"
+#include "server.h"
+#include "sensor-imu/sensor_datatypes.h"
+#include "esc_interface/esc_datatypes.h"
+#include "esc_interface/esc_interface.h"
+
 namespace msr { namespace airlib {
 
 class SnapStackApi : public MultirotorApiBase {

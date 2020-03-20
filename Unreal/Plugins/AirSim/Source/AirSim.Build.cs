@@ -105,6 +105,7 @@ public class AirSim : ModuleRules
 
         PublicIncludePaths.Add(Path.Combine(AirLibPath, "include"));
         PublicIncludePaths.Add(Path.Combine(AirLibPath, "deps", "eigen3"));
+        PublicIncludePaths.Add(Path.Combine(AirLibPath, "deps/snapstack_shims", "include"));
         AddOSLibDependencies(Target);
 
         SetupCompileMode(CompileMode.CppCompileWithRpc, Target);

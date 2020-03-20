@@ -7,6 +7,9 @@ CommonSetup()
 
 IncludeEigen()
 
+# for MIT ACL snapstack
+IncludeSnapStackShims()
+
 SetupConsoleBuild()
 
 include_directories(

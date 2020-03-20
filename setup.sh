@@ -239,6 +239,15 @@ mv temp_eigen/eigen*/Eigen AirLib/deps/eigen3
 rm -rf temp_eigen
 rm eigen3.zip
 
+echo "Installing snapstack shims..."
+rm -rf ./AirLib/deps/snapstack_shims
+echo "downloading snap-sim..."
+git clone https://gitlab.com/mit-acl/fsw/snap-stack/snap_sim.git temp_snapsim
+mkdir -p AirLib/deps/snapstack_shims/include
+pushd temp_snapsim >/dev/null && git log -1 > ../AirLib/deps/snapstack_shims/git && popd >/dev/null
+mv temp_snapsim/include/shims/* ./AirLib/deps/snapstack_shims/include/
+rm -rf temp_snapsim
+
 popd >/dev/null
 
 set +x

@@ -7,6 +7,9 @@ CommonSetup()
 
 IncludeEigen()
 
+# for MIT ACL snapstack
+IncludeSnapStackShims()
+
 include_directories(
   ${AIRSIM_ROOT}/AirLib/
   ${AIRSIM_ROOT}/AirLib/include
