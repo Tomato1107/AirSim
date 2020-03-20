@@ -97,7 +97,7 @@ public: //VehicleApiBase implementation
     }
     virtual void getStatusMessages(std::vector<std::string>&) override
     {
-        Utils::log("getStatusMessages Not Implemented", Utils::kLogLevelInfo);
+        // Utils::log("getStatusMessages Not Implemented", Utils::kLogLevelInfo);
     }
 
     virtual const SensorCollection& getSensors() const override
@@ -126,7 +126,7 @@ public: //MultirotorApiBase implementation
     }
     virtual bool setRCData(const RCData& rc_data) override
     {
-        Utils::log("setRCData Not Implemented", Utils::kLogLevelInfo);
+        // Utils::log("setRCData Not Implemented", Utils::kLogLevelInfo);
         return false;
     }
 
