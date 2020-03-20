@@ -109,8 +109,7 @@ public: //VehicleApiBase implementation
 public: //MultirotorApiBase implementation
     virtual real_T getActuation(unsigned int rotor_index) const override
     {
-        return 0.0;
-        // return motorcmds_[rotor_index];
+        return motorcmds_[rotor_index];
     }
     virtual size_t getActuatorCount() const override
     {
@@ -351,11 +350,13 @@ private:
             esc_commands esccmds;
             bool rcvd = escclient_->read(&esccmds);
 
-            std::lock_guard<std::mutex> lck(escmtx_);
-            motorcmds_[0] = (esccmds.pwm[0] - PWM_MIN) / static_cast<double>(PWM_MAX - PWM_MIN);
-            motorcmds_[1] = (esccmds.pwm[1] - PWM_MIN) / static_cast<double>(PWM_MAX - PWM_MIN);
-            motorcmds_[2] = (esccmds.pwm[2] - PWM_MIN) / static_cast<double>(PWM_MAX - PWM_MIN);
-            motorcmds_[3] = (esccmds.pwm[3] - PWM_MIN) / static_cast<double>(PWM_MAX - PWM_MIN);
+            if (rcvd) {
+                std::lock_guard<std::mutex> lck(escmtx_);
+                motorcmds_[0] = (esccmds.pwm[0] - PWM_MIN) / static_cast<double>(PWM_MAX - PWM_MIN);
+                motorcmds_[1] = (esccmds.pwm[1] - PWM_MIN) / static_cast<double>(PWM_MAX - PWM_MIN);
+                motorcmds_[2] = (esccmds.pwm[2] - PWM_MIN) / static_cast<double>(PWM_MAX - PWM_MIN);
+                motorcmds_[3] = (esccmds.pwm[3] - PWM_MIN) / static_cast<double>(PWM_MAX - PWM_MIN);
+            }
         }
     }
 
@@ -373,7 +374,7 @@ private:
     std::unique_ptr<acl::ipc::Client<esc_commands>> escclient_;
     std::atomic<bool> escthread_stop_;
     static constexpr int MOTORS = 4;
-    float motorcmds_[MOTORS];
+    float motorcmds_[MOTORS] = { 0.0f };
     std::thread escthread_;
     std::mutex escmtx_;
 
