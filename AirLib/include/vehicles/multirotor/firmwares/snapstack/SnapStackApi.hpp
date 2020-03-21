@@ -136,52 +136,20 @@ protected:
         return *kinematics_;
     }
 
-    virtual Vector3r getPosition() const override
-    {
-        // TODO: something?
-        return {};
-        // const auto& val = firmware_->offboardApi().getStateEstimator().getPosition();
-        // return AirSimSimpleFlightCommon::toVector3r(val);
-    }
-
-    virtual Vector3r getVelocity() const override
-    {
-        // TODO: something?
-        return {};
-        // const auto& val = firmware_->offboardApi().getStateEstimator().getLinearVelocity();
-        // return AirSimSimpleFlightCommon::toVector3r(val);
-    }
-
-    virtual Quaternionr getOrientation() const override
-    {
-        // TODO: something?
-        return {};
-        // const auto& val = firmware_->offboardApi().getStateEstimator().getOrientation();
-        // return AirSimSimpleFlightCommon::toQuaternion(val);
-    }
-
     virtual LandedState getLandedState() const override
     {
-        // TODO: is this important?
+        // don't care
         return LandedState::Landed;
-        // return firmware_->offboardApi().getLandedState() ? LandedState::Landed : LandedState::Flying;
     }
 
     virtual RCData getRCData() const override
     {
-        // TODO: is this important?
-        Utils::log("getRCData Not Implemented", Utils::kLogLevelInfo);
         return {};
-        //return what we received last time through setRCData
-        // return last_rcData_;
     }
 
     virtual GeoPoint getGpsLocation() const override
     {
-        // TODO: is this important?
-        Utils::log("getGpsLocation Not Implemented", Utils::kLogLevelInfo);
         return GeoPoint(Utils::nan<double>(), Utils::nan<double>(), Utils::nan<float>());
-        // return AirSimSimpleFlightCommon::toGeoPoint(firmware_->offboardApi().getGeoPoint());
     }
 
     virtual float getCommandPeriod() const override
@@ -296,20 +264,6 @@ protected:
     }
 
 private:
-    //convert pitch, roll, yaw from -1 to 1 to PWM
-    static uint16_t angleToPwm(float angle)
-    {
-        return static_cast<uint16_t>(angle * 500.0f + 1500.0f);
-    }
-    static uint16_t thrustToPwm(float thrust)
-    {
-        return static_cast<uint16_t>((thrust < 0 ? 0 : thrust) * 1000.0f + 1000.0f);
-    }
-    static uint16_t switchTopwm(float switchVal, uint maxSwitchVal = 1)
-    {
-        return static_cast<uint16_t>(1000.0f * switchVal / maxSwitchVal + 1000.0f);
-    }
-
     void readSettings(const AirSimSettings::VehicleSetting& vehicle_setting)
     {
         vehicle_name_ = vehicle_setting.vehicle_name;
