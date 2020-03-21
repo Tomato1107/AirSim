@@ -121,9 +121,8 @@ public: //MultirotorApiBase implementation
     }
     virtual void setSimulatedGroundTruth(const Kinematics::State* kinematics, const Environment* environment) override
     {
-        // TODO: something?
-        // board_->setGroundTruthKinematics(kinematics);
-        // estimator_->setGroundTruthKinematics(kinematics, environment);
+        kinematics_ = kinematics;
+        environment_ = environment;
     }
     virtual bool setRCData(const RCData& rc_data) override
     {
@@ -134,10 +133,7 @@ public: //MultirotorApiBase implementation
 protected:
     virtual Kinematics::State getKinematicsEstimated() const override
     {
-        // TODO: something?
-        return {};
-        // return AirSimSimpleFlightCommon::toKinematicsState3r(firmware_->offboardApi().
-        //     getStateEstimator().getKinematicsEstimated());
+        return *kinematics_;
     }
 
     virtual Vector3r getPosition() const override
@@ -362,6 +358,10 @@ private:
 
 private:
     const MultiRotorParams* vehicle_params_;
+
+    /// \brief Simulator ground truth
+    const Kinematics::State* kinematics_;
+    const Environment* environment_;
 
     std::string vehicle_name_;
 
