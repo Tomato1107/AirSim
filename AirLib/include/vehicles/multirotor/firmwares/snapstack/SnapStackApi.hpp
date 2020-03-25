@@ -109,7 +109,32 @@ public: //VehicleApiBase implementation
 public: //MultirotorApiBase implementation
     virtual real_T getActuation(unsigned int rotor_index) const override
     {
-        return motorcmds_[rotor_index];
+        /**
+         * ACL SnapStack expects QuadX with the following motor layout:
+         *
+         *           x-axis
+         *      (0) cw  |   (3) ccw
+         *              |
+         *  y-axis --------------
+         *              |
+         *      (1) ccw |   (2) cw
+         *
+         *  While AirSim / ArduPilot QuadX has the following motor layout:
+         *  (see MultiRotorParams.hpp)
+         *
+         *      x-axis
+         *  (2) cw  |   (0) ccw
+         *          |
+         *  -------------- y-axis
+         *          |
+         *  (1) ccw |   (3) cw
+         */
+
+        if (rotor_index == 0) return motorcmds_[3];
+        else if (rotor_index == 1) return motorcmds_[1];
+        else if (rotor_index == 2) return motorcmds_[0];
+        else if (rotor_index == 3) return motorcmds_[2];
+        else return 0.0;
     }
     virtual size_t getActuatorCount() const override
     {
